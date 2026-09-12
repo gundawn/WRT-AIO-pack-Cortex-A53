@@ -16,4 +16,6 @@ Open\Immortal WRT 25.12+
 Архитектура Cortex-A53 (например Xiaomi AX3000T mtk, Redmi AX6 и др.)
 
 Исполняемый скрипт в SSH:
-wget -O - https://raw.githubusercontent.com/xaxaaxaaa-hash/WRT-AIO-pack-Cortex-A53/main/install.sh | sh
+  wget -O - https://raw.githubusercontent.com/xaxaaxaaa-hash/WRT-AIO-pack-Cortex-A53/main/install.sh | sh
+
+  копируем целиком от и до, исполняем, следуем инструкции
