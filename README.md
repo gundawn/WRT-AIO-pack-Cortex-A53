@@ -30,4 +30,4 @@ Open\Immortal\VERDE WRT 25.0+
 
   wget -O - https://raw.githubusercontent.com/xaxaaxaaa-hash/WRT-AIO-pack-Cortex-A53/main/install.sh | sh
 
-Копируем целиком от и до, исполняем, следуем инструкции.
+Копируем целиком от и до, исполняем, следуем инструкции. "aurora-shadcn" не ставим.
