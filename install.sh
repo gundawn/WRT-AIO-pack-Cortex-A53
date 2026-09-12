@@ -10,11 +10,11 @@ git="github.com"; grep -q "^140.82.114.3 $git" /etc/hosts || {
     printf "#$git\n140.82.114.3 $git\n185.199.110.154 github.githubassets.com\n185.199.110.133 camo.githubassets.com\n" >> /etc/hosts
     /etc/init.d/dnsmasq restart 2>/dev/null
 }
-printf "Гитхаб разлочен\n"
+printf "Гитхаб разлочен, будет проще.\n"
 
 # Скачивание и установка темы Aurora
 wget -O - https://openwrt.eamonxg.fun/install.sh | sh || {
-    echo "Ошибка загрузки темы Aurora. Скачаешь вручную после настройки NetShift"
+    echo "Ошибка загрузки темы Aurora. Скачаешь вручную пакетами."
     exit 1
 }
 
@@ -25,7 +25,7 @@ APK_URL=$(uclient-fetch -qO- "https://api.github.com/repos/shtorm-7/sing-box-ext
   | head -n1 | sed 's/.*"\(https[^"]*\)".*/\1/')
 
 [ -z "$APK_URL" ] && {
-    echo "APK под $ARCH не найден в последнем релизе"
+    echo "APK под $ARCH не качается, делай вручную."
     exit 1
 }
 
