@@ -1,4 +1,4 @@
-<h1>**Удобный скрипт для подключения по SSH**<h1>
+**<h1>Удобный скрипт для подключения по SSH<h1>**
 
 Одной командой:
 
@@ -19,7 +19,7 @@
 
 
 
-<h2>**Системные требования:**<h2>
+**<h2>Системные требования:<h2>**
 
 Open\Immortal\VERDE WRT 25.0+
 
@@ -32,7 +32,7 @@ Open\Immortal\VERDE WRT 25.0+
 
 
 
-<h3>**Исполняемый скрипт в SSH:**<h3>
+**<h3>Исполняемый скрипт в SSH:<h3>**
 
   wget -O - https://raw.githubusercontent.com/xaxaaxaaa-hash/WRT-AIO-pack-Cortex-A53/main/install.sh | sh
 
