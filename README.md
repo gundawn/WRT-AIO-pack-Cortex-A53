@@ -21,19 +21,17 @@
 
 **<h2>Системные требования:<h2>**
 
-Open\Immortal\VERDE WRT 25.0+
+OpenWRT
 
 Не менее 30 мб свободной памяти (лучше чистая установка с нуля)
 
 Отсутствие VPN, DNS и DoH\DoT (опять же лучше с нуля с готовым интернетом)
 
-Архитектура Cortex-A53 (например Xiaomi AX3000T mtk, Redmi AX6 и др.)
-
-
+Высокая производительность роутера
 
 
 **<h3>Исполняемый скрипт в SSH:<h3>**
 
-  wget -O - https://raw.githubusercontent.com/xaxaaxaaa-hash/WRT-AIO-pack-Cortex-A53/main/install.sh | sh
+  wget -O - https://raw.githubusercontent.com/xaxaaxaaa-hash/WRT-AIO-universal/main/install.sh | sh
 
 Копируем целиком от и до, исполняем, следуем инструкции. "aurora-shadcn" не ставим.
