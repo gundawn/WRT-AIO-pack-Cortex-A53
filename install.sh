@@ -170,7 +170,9 @@ else
     "$PKG_MGR" install luci-i18n-base-ru
 fi
 
-if [ "$?" -eq 0 ]; then
+LUCI_RESULT=$?
+
+if [ "$LUCI_RESULT" -eq 0 ]; then
     BASE_RU_STATUS="установлен"
     printf '%s\n' "[OK] Русский язык LuCI установлен"
 else
