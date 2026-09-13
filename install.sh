@@ -35,18 +35,18 @@ if [ -z "$DIST_ARCH" ]; then
     exit 1
 fi
 
-# Определяем реальный пакетный менеджер.
-# Версия OpenWrt для этого не используется.
-if command -v apk >/dev/null 2>&1 &&
-   [ "$(command -v apk)" != "/opt/bin/apk" ]; then
+# Определяем пакетный менеджер OpenWrt.
+# Используем системные бинарники, а не сторонние версии из /opt/bin.
 
-    PKG_MGR="apk"
+APK_BIN="$(command -v apk 2>/dev/null || true)"
+OPKG_BIN="$(command -v opkg 2>/dev/null || true)"
+
+if [ -n "$APK_BIN" ] && [ "$APK_BIN" != "/opt/bin/apk" ]; then
+    PKG_MGR="$APK_BIN"
     PKG_EXT="apk"
 
-elif command -v opkg >/dev/null 2>&1 &&
-     [ "$(command -v opkg)" != "/opt/bin/opkg" ]; then
-
-    PKG_MGR="opkg"
+elif [ -n "$OPKG_BIN" ] && [ "$OPKG_BIN" != "/opt/bin/opkg" ]; then
+    PKG_MGR="$OPKG_BIN"
     PKG_EXT="ipk"
 
 else
@@ -223,8 +223,8 @@ if [ -n "$TAG" ]; then
 
     # Ищем ТОЛЬКО пакет OpenWrt нужного типа:
     #
-    # apk  -> sing-box-extended_*_openwrt_<arch>.apk
-    # opkg -> sing-box-extended_*_openwrt_<arch>.ipk
+    # apk  -> sing-box-extended_<version>_openwrt_<arch>.apk
+    # opkg -> sing-box-extended_<version>_openwrt_<arch>.ipk
     #
     # Архивы, бинарники, Android APK и прочие файлы
     # сюда не попадут.
@@ -277,11 +277,11 @@ if [ -n "$TAG" ]; then
 
             INSTALL_RESULT=0
 
-            if [ "$PKG_MGR" = "apk" ]; then
-                apk add --allow-untrusted "$PKG_FILE" ||
+            if [ "$PKG_EXT" = "apk" ]; then
+                "$PKG_MGR" add --allow-untrusted "$PKG_FILE" ||
                     INSTALL_RESULT=$?
             else
-                opkg install "$PKG_FILE" ||
+                "$PKG_MGR" install "$PKG_FILE" ||
                     INSTALL_RESULT=$?
             fi
 
