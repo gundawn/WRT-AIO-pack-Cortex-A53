@@ -1,50 +1,271 @@
 #!/bin/sh
+set -u
 
-apk update && apk upgrade && apk add luci-i18n-base-ru || {
-    echo "Ошибка установки базовых пакетов. WAN подключен? Ебало провайдера представили?"
+printf '%s\n' "========================================"
+printf '%s\n' " OpenWrt Universal Installer"
+printf '%s\n' "========================================"
+printf '\n'
+
+PACKAGES_STATUS="ошибка"
+AURORA_STATUS="ошибка"
+SINGBOX_STATUS="ошибка"
+NETSHIFT_STATUS="ошибка"
+BASE_RU_STATUS="ошибка"
+
+if [ "$(id -u)" != "0" ]; then
+    printf '%s\n' "[ОШИБКА] Скрипт необходимо запускать от root."
     exit 1
-}
+fi
 
-# Добавление GitHub в hosts (обход блокировок)
-git="github.com"; grep -q "^140.82.114.3 $git" /etc/hosts || {
-    printf "#$git\n140.82.114.3 $git\n185.199.110.154 github.githubassets.com\n185.199.110.133 camo.githubassets.com\n" >> /etc/hosts
-    /etc/init.d/dnsmasq restart 2>/dev/null
-}
-printf "Гитхаб разлочен, будет проще.\n"
+printf '%s\n' "[1/8] Проверка OpenWrt..."
 
-# Скачивание и установка темы Aurora
-wget -O - https://openwrt.eamonxg.fun/install.sh | sh || {
-    echo "Ошибка загрузки темы Aurora. Скачаешь вручную пакетами."
+if [ ! -f /etc/openwrt_release ]; then
+    printf '%s\n' "[ОШИБКА] /etc/openwrt_release не найден."
     exit 1
-}
+fi
 
-# Установка sing-box-extended (последний релиз под архитектуру)
-ARCH="aarch64_cortex-a53"
-APK_URL=$(uclient-fetch -qO- "https://api.github.com/repos/shtorm-7/sing-box-extended/releases/latest" \
-  | grep -o '"browser_download_url": *"[^"]*'"$ARCH"'[^"]*\.apk"' \
-  | head -n1 | sed 's/.*"\(https[^"]*\)".*/\1/')
+. /etc/openwrt_release
 
-[ -z "$APK_URL" ] && {
-    echo "APK под $ARCH не качается, делай вручную."
+DIST_VERSION="${DISTRIB_RELEASE:-}"
+DIST_ARCH="${DISTRIB_ARCH:-}"
+DIST_TARGET="${DISTRIB_TARGET:-}"
+
+if [ -z "$DIST_VERSION" ] || [ -z "$DIST_ARCH" ]; then
+    printf '%s\n' "[ОШИБКА] Не удалось определить версию или архитектуру OpenWrt."
     exit 1
+fi
+
+VER_MAJOR="${DIST_VERSION%%.*}"
+VER_REST="${DIST_VERSION#*.}"
+VER_MINOR="${VER_REST%%.*}"
+
+case "$VER_MAJOR" in
+    ''|*[!0-9]*)
+        printf '%s\n' "[ОШИБКА] Неподдерживаемая версия OpenWrt: $DIST_VERSION"
+        exit 1
+        ;;
+esac
+
+case "$VER_MINOR" in
+    ''|*[!0-9]*)
+        printf '%s\n' "[ОШИБКА] Неподдерживаемая версия OpenWrt: $DIST_VERSION"
+        exit 1
+        ;;
+esac
+
+if [ "$VER_MAJOR" -gt 25 ] || {
+    [ "$VER_MAJOR" -eq 25 ] && [ "$VER_MINOR" -ge 12 ]
+}; then
+    PKG_MGR="apk"
+    PKG_EXT="apk"
+else
+    PKG_MGR="opkg"
+    PKG_EXT="ipk"
+fi
+
+if ! command -v "$PKG_MGR" >/dev/null 2>&1; then
+    printf '%s\n' "[ОШИБКА] Пакетный менеджер $PKG_MGR не найден."
+    exit 1
+fi
+
+printf '%s\n' "[OK] OpenWrt: $DIST_VERSION"
+printf '%s\n' "[OK] Архитектура: $DIST_ARCH"
+printf '%s\n' "[OK] Target: $DIST_TARGET"
+printf '%s\n' "[OK] Пакетный менеджер: $PKG_MGR"
+printf '\n'
+
+TMP_DIR="/tmp/openwrt-installer"
+rm -rf "$TMP_DIR"
+mkdir -p "$TMP_DIR"
+
+cleanup() {
+    [ -n "${TMP_DIR:-}" ] && rm -rf "$TMP_DIR"
 }
 
-echo "Качаю: $APK_URL"
-cd /tmp || exit 1
-uclient-fetch -O 1.apk "$APK_URL" || {
-    echo "Ошибка загрузки signbox-extended"
-    exit 1
-}
-apk add --allow-untrusted 1.apk || {
-    echo "Ошибка установки signbox-extended"
-    exit 1
-}
+trap cleanup EXIT
 
-# Очистка
-rm -f /tmp/*.apk
+FETCH_TMP="$TMP_DIR/fetch.tmp"
 
-# Установка netshift (основной скрипт)
-wget -O - https://raw.githubusercontent.com/yandexru45/netshift/refs/heads/main/install.sh | sh || {
-    echo "Ошибка установки netshift"
+if command -v wget >/dev/null 2>&1; then
+    fetch() {
+        rm -f "$FETCH_TMP"
+
+        if wget -qO "$FETCH_TMP" --no-check-certificate --timeout=20 "$1" 2>/dev/null &&
+           [ -s "$FETCH_TMP" ]; then
+            cat "$FETCH_TMP" || {
+                rm -f "$FETCH_TMP"
+                return 1
+            }
+            rm -f "$FETCH_TMP"
+            return 0
+        fi
+
+        rm -f "$FETCH_TMP"
+
+        if command -v curl >/dev/null 2>&1; then
+            if curl -fsSLk --connect-timeout 20 --max-time 120 "$1" > "$FETCH_TMP" 2>/dev/null &&
+               [ -s "$FETCH_TMP" ]; then
+                cat "$FETCH_TMP" || {
+                    rm -f "$FETCH_TMP"
+                    return 1
+                }
+                rm -f "$FETCH_TMP"
+                return 0
+            fi
+        fi
+
+        rm -f "$FETCH_TMP"
+        return 1
+    }
+elif command -v curl >/dev/null 2>&1; then
+    fetch() {
+        curl -fsSLk --connect-timeout 20 --max-time 120 "$1"
+    }
+else
+    printf '%s\n' "[ОШИБКА] Не найден wget или curl."
     exit 1
-}
+fi
+
+AURORA_URL="https://openwrt.eamonxg.fun/install.sh"
+NETSHIFT_URL="https://raw.githubusercontent.com/yandexru45/netshift/refs/heads/main/install.sh"
+GITHUB_API="https://api.github.com/repos/shtorm-7/sing-box-extended/releases/latest"
+
+printf '%s\n' "[2/8] Обновление списков пакетов..."
+
+if "$PKG_MGR" update; then
+    printf '%s\n' "[OK] Списки пакетов обновлены"
+else
+    printf '%s\n' "[ОШИБКА] Не удалось обновить списки пакетов"
+fi
+
+printf '\n'
+
+printf '%s\n' "[3/8] Обновление установленных пакетов..."
+
+if "$PKG_MGR" upgrade; then
+    PACKAGES_STATUS="обновлены"
+    printf '%s\n' "[OK] Установленные пакеты обновлены"
+else
+    printf '%s\n' "[ОШИБКА] Не удалось обновить установленные пакеты"
+fi
+
+printf '\n'
+
+printf '%s\n' "[4/8] Установка русского языка LuCI..."
+
+if "$PKG_MGR" install luci-i18n-base-ru; then
+    BASE_RU_STATUS="установлен"
+    printf '%s\n' "[OK] Русский язык LuCI установлен"
+else
+    printf '%s\n' "[ОШИБКА] Не удалось установить luci-i18n-base-ru"
+fi
+
+printf '\n'
+
+printf '%s\n' "[5/8] Установка темы Aurora..."
+
+AURORA_SCRIPT="$TMP_DIR/aurora-install.sh"
+
+if fetch "$AURORA_URL" > "$AURORA_SCRIPT" && [ -s "$AURORA_SCRIPT" ]; then
+    if sh "$AURORA_SCRIPT"; then
+        AURORA_STATUS="установлена"
+        printf '%s\n' "[OK] Тема Aurora установлена"
+    else
+        printf '%s\n' "[ОШИБКА] Тема Aurora вернула ошибку"
+    fi
+else
+    printf '%s\n' "[ОШИБКА] Не удалось скачать установщик Aurora"
+fi
+
+printf '\n'
+
+printf '%s\n' "[6/8] Получение последнего релиза sing-box-extended..."
+
+RELEASE_JSON="$TMP_DIR/release.json"
+TAG=""
+
+if fetch "$GITHUB_API" > "$RELEASE_JSON" && [ -s "$RELEASE_JSON" ]; then
+    TAG="$(sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$RELEASE_JSON" | head -n 1)"
+
+    if [ -n "$TAG" ]; then
+        printf '%s\n' "[OK] Найден релиз: $TAG"
+    else
+        printf '%s\n' "[ОШИБКА] Не удалось определить версию sing-box-extended"
+    fi
+else
+    printf '%s\n' "[ОШИБКА] Не удалось получить информацию о релизе sing-box-extended"
+fi
+
+printf '\n'
+
+printf '%s\n' "[7/8] Загрузка и установка sing-box-extended..."
+
+if [ -n "$TAG" ]; then
+    ASSET="$(grep -o '"browser_download_url"[[:space:]]*:[[:space:]]*"[^"]*"' "$RELEASE_JSON" |
+        sed 's/.*"\(https:[^"]*\)"/\1/' |
+        grep "sing-box-extended_.*_openwrt_${DIST_ARCH}\\.${PKG_EXT}" |
+        head -n 1 || true)"
+
+    if [ -n "$ASSET" ]; then
+        PKG_FILE="$TMP_DIR/$(basename "$ASSET")"
+
+        printf '%s\n' "[INFO] Пакет: $(basename "$ASSET")"
+
+        if fetch "$ASSET" > "$PKG_FILE" && [ -s "$PKG_FILE" ]; then
+            INSTALL_RESULT=0
+
+            if [ "$PKG_MGR" = "apk" ]; then
+                apk add --allow-untrusted "$PKG_FILE" || INSTALL_RESULT=$?
+            else
+                opkg install "$PKG_FILE" || INSTALL_RESULT=$?
+            fi
+
+            if [ "$INSTALL_RESULT" -eq 0 ]; then
+                if command -v sing-box >/dev/null 2>&1 &&
+                   sing-box version >/dev/null 2>&1; then
+                    SINGBOX_STATUS="установлен"
+                    printf '%s\n' "[OK] sing-box-extended установлен"
+                else
+                    printf '%s\n' "[ОШИБКА] Проверка sing-box не пройдена"
+                fi
+            else
+                printf '%s\n' "[ОШИБКА] Не удалось установить sing-box-extended"
+            fi
+        else
+            printf '%s\n' "[ОШИБКА] Не удалось скачать sing-box-extended"
+        fi
+    else
+        printf '%s\n' "[ОШИБКА] Пакет для ${DIST_ARCH}.${PKG_EXT} не найден"
+    fi
+fi
+
+printf '\n'
+
+printf '%s\n' "[8/8] Установка NetShift..."
+
+NETSHIFT_SCRIPT="$TMP_DIR/netshift-install.sh"
+
+if fetch "$NETSHIFT_URL" > "$NETSHIFT_SCRIPT" && [ -s "$NETSHIFT_SCRIPT" ]; then
+    if sh "$NETSHIFT_SCRIPT"; then
+        NETSHIFT_STATUS="установлен"
+        printf '%s\n' "[OK] NetShift установлен"
+    else
+        printf '%s\n' "[ОШИБКА] NetShift вернул ошибку"
+    fi
+else
+    printf '%s\n' "[ОШИБКА] Не удалось скачать установщик NetShift"
+fi
+
+printf '\n'
+
+printf '%s\n' "========================================"
+printf '%s\n' " РЕЗУЛЬТАТ УСТАНОВКИ"
+printf '%s\n' "========================================"
+printf '%-20s %s\n' "OpenWrt:" "$DIST_VERSION"
+printf '%-20s %s\n' "Архитектура:" "$DIST_ARCH"
+printf '%-20s %s\n' "Пакеты:" "$PACKAGES_STATUS"
+printf '%-20s %s\n' "Русский LuCI:" "$BASE_RU_STATUS"
+printf '%-20s %s\n' "Тема Aurora:" "$AURORA_STATUS"
+printf '%-20s %s\n' "sing-box:" "$SINGBOX_STATUS"
+printf '%-20s %s\n' "NetShift:" "$NETSHIFT_STATUS"
+printf '%s\n' "========================================"
