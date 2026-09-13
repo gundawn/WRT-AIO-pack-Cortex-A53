@@ -69,7 +69,7 @@ if ! mkdir -p "$TMP_DIR"; then
 fi
 
 cleanup() {
-    rm -rf "$TMP_DIR"
+    [ -n "${TMP_DIR:-}" ] && rm -rf "$TMP_DIR"
 }
 
 trap cleanup EXIT
