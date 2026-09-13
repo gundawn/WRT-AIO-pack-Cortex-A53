@@ -10,7 +10,9 @@ WRT AIO Universal
 
 Подключитесь к роутеру по SSH от имени root и выполните:
 
+```bash
 wget -O - https://raw.githubusercontent.com/gundawn/WRT-AIO-universal/main/install.sh | sh
+```
 
 Скрипт автоматически определит:
 
