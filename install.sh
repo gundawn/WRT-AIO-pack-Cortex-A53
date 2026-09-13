@@ -6,6 +6,7 @@ printf '%s\n' " OpenWrt Universal Installer"
 printf '%s\n' "========================================"
 printf '\n'
 
+PACKAGES_UPDATE_STATUS="ошибка"
 PACKAGES_STATUS="ошибка"
 AURORA_STATUS="ошибка"
 SINGBOX_STATUS="ошибка"
@@ -35,9 +36,6 @@ if [ -z "$DIST_ARCH" ]; then
     exit 1
 fi
 
-# Определяем пакетный менеджер OpenWrt.
-# Используем системные бинарники, а не сторонние версии из /opt/bin.
-
 APK_BIN="$(command -v apk 2>/dev/null || true)"
 OPKG_BIN="$(command -v opkg 2>/dev/null || true)"
 
@@ -64,72 +62,76 @@ printf '\n'
 TMP_DIR="/tmp/openwrt-installer"
 
 rm -rf "$TMP_DIR"
-mkdir -p "$TMP_DIR" || {
+
+if ! mkdir -p "$TMP_DIR"; then
     printf '%s\n' "[ОШИБКА] Не удалось создать временную директорию."
     exit 1
-}
+fi
 
 cleanup() {
-    [ -n "${TMP_DIR:-}" ] && rm -rf "$TMP_DIR"
+    rm -rf "$TMP_DIR"
 }
 
 trap cleanup EXIT
 
-FETCH_TMP="$TMP_DIR/fetch.tmp"
+fetch_file() {
+    URL="$1"
+    OUTPUT="$2"
 
-if command -v wget >/dev/null 2>&1; then
+    rm -f "$OUTPUT"
 
-    fetch() {
-        rm -f "$FETCH_TMP"
+    if command -v wget >/dev/null 2>&1; then
 
-        if wget -qO "$FETCH_TMP" \
-            --no-check-certificate \
+        if wget -qO "$OUTPUT" \
             --timeout=20 \
-            "$1" 2>/dev/null &&
-           [ -s "$FETCH_TMP" ]; then
-
-            cat "$FETCH_TMP" || {
-                rm -f "$FETCH_TMP"
-                return 1
-            }
-
-            rm -f "$FETCH_TMP"
+            "$URL" 2>/dev/null &&
+           [ -s "$OUTPUT" ]; then
             return 0
         fi
 
-        rm -f "$FETCH_TMP"
+        rm -f "$OUTPUT"
 
-        if command -v curl >/dev/null 2>&1; then
-            if curl -fsSLk \
-                --connect-timeout 20 \
-                --max-time 120 \
-                "$1" > "$FETCH_TMP" 2>/dev/null &&
-               [ -s "$FETCH_TMP" ]; then
-
-                cat "$FETCH_TMP" || {
-                    rm -f "$FETCH_TMP"
-                    return 1
-                }
-
-                rm -f "$FETCH_TMP"
-                return 0
-            fi
+        if wget -qO "$OUTPUT" \
+            --no-check-certificate \
+            --timeout=20 \
+            "$URL" 2>/dev/null &&
+           [ -s "$OUTPUT" ]; then
+            return 0
         fi
 
-        rm -f "$FETCH_TMP"
-        return 1
-    }
+        rm -f "$OUTPUT"
+    fi
 
-elif command -v curl >/dev/null 2>&1; then
+    if command -v curl >/dev/null 2>&1; then
 
-    fetch() {
-        curl -fsSLk \
+        if curl -fsSL \
             --connect-timeout 20 \
             --max-time 120 \
-            "$1"
-    }
+            "$URL" \
+            -o "$OUTPUT" 2>/dev/null &&
+           [ -s "$OUTPUT" ]; then
+            return 0
+        fi
 
-else
+        rm -f "$OUTPUT"
+
+        if curl -fsSLk \
+            --connect-timeout 20 \
+            --max-time 120 \
+            "$URL" \
+            -o "$OUTPUT" 2>/dev/null &&
+           [ -s "$OUTPUT" ]; then
+            return 0
+        fi
+
+        rm -f "$OUTPUT"
+    fi
+
+    return 1
+}
+
+if ! command -v wget >/dev/null 2>&1 &&
+   ! command -v curl >/dev/null 2>&1; then
     printf '%s\n' "[ОШИБКА] Не найден wget или curl."
     exit 1
 fi
@@ -141,6 +143,7 @@ GITHUB_API="https://api.github.com/repos/shtorm-7/sing-box-extended/releases/lat
 printf '%s\n' "[2/8] Обновление списков пакетов..."
 
 if "$PKG_MGR" update; then
+    PACKAGES_UPDATE_STATUS="обновлены"
     printf '%s\n' "[OK] Списки пакетов обновлены"
 else
     printf '%s\n' "[ОШИБКА] Не удалось обновить списки пакетов"
@@ -174,8 +177,7 @@ printf '%s\n' "[5/8] Установка темы Aurora..."
 
 AURORA_SCRIPT="$TMP_DIR/aurora-install.sh"
 
-if fetch "$AURORA_URL" > "$AURORA_SCRIPT" &&
-   [ -s "$AURORA_SCRIPT" ]; then
+if fetch_file "$AURORA_URL" "$AURORA_SCRIPT"; then
 
     if sh "$AURORA_SCRIPT"; then
         AURORA_STATUS="установлена"
@@ -195,8 +197,7 @@ printf '%s\n' "[6/8] Получение последнего релиза sing-b
 RELEASE_JSON="$TMP_DIR/release.json"
 TAG=""
 
-if fetch "$GITHUB_API" > "$RELEASE_JSON" &&
-   [ -s "$RELEASE_JSON" ]; then
+if fetch_file "$GITHUB_API" "$RELEASE_JSON"; then
 
     TAG="$(
         sed -n \
@@ -221,14 +222,6 @@ printf '%s\n' "[7/8] Загрузка и установка sing-box-extended...
 
 if [ -n "$TAG" ]; then
 
-    # Ищем ТОЛЬКО пакет OpenWrt нужного типа:
-    #
-    # apk  -> sing-box-extended_<version>_openwrt_<arch>.apk
-    # opkg -> sing-box-extended_<version>_openwrt_<arch>.ipk
-    #
-    # Архивы, бинарники, Android APK и прочие файлы
-    # сюда не попадут.
-
     ASSET_MATCHES="$(
         grep -o \
             '"browser_download_url"[[:space:]]*:[[:space:]]*"[^"]*"' \
@@ -247,9 +240,11 @@ if [ -n "$TAG" ]; then
     )"
 
     case "$ASSET_COUNT" in
+
         1)
             ASSET="$ASSET_MATCHES"
             ;;
+
         0)
             printf '%s\n' \
                 "[ОШИБКА] Подходящий пакет sing-box-extended не найден."
@@ -257,13 +252,15 @@ if [ -n "$TAG" ]; then
                 "[INFO] Требуется: sing-box-extended_*_openwrt_${DIST_ARCH}.${PKG_EXT}"
             ASSET=""
             ;;
+
         *)
             printf '%s\n' \
-                "[ОШИБКА] Найдено несколько подходящих пакетов sing-box-extended: $ASSET_COUNT"
+                "[ОШИБКА] Найдено несколько подходящих пакетов: $ASSET_COUNT"
             printf '%s\n' "[INFO] Установка отменена для безопасности."
             printf '%s\n' "$ASSET_MATCHES"
             ASSET=""
             ;;
+
     esac
 
     if [ -n "$ASSET" ]; then
@@ -272,16 +269,18 @@ if [ -n "$TAG" ]; then
 
         printf '%s\n' "[INFO] Пакет: $(basename "$ASSET")"
 
-        if fetch "$ASSET" > "$PKG_FILE" &&
-           [ -s "$PKG_FILE" ]; then
+        if fetch_file "$ASSET" "$PKG_FILE"; then
 
             INSTALL_RESULT=0
 
             if [ "$PKG_EXT" = "apk" ]; then
-                "$PKG_MGR" add --allow-untrusted "$PKG_FILE" ||
+                "$PKG_MGR" add \
+                    --allow-untrusted \
+                    "$PKG_FILE" ||
                     INSTALL_RESULT=$?
             else
-                "$PKG_MGR" install "$PKG_FILE" ||
+                "$PKG_MGR" install \
+                    "$PKG_FILE" ||
                     INSTALL_RESULT=$?
             fi
 
@@ -315,8 +314,7 @@ printf '%s\n' "[8/8] Установка NetShift..."
 
 NETSHIFT_SCRIPT="$TMP_DIR/netshift-install.sh"
 
-if fetch "$NETSHIFT_URL" > "$NETSHIFT_SCRIPT" &&
-   [ -s "$NETSHIFT_SCRIPT" ]; then
+if fetch_file "$NETSHIFT_URL" "$NETSHIFT_SCRIPT"; then
 
     if sh "$NETSHIFT_SCRIPT"; then
         NETSHIFT_STATUS="установлен"
@@ -336,7 +334,9 @@ printf '%s\n' " РЕЗУЛЬТАТ УСТАНОВКИ"
 printf '%s\n' "========================================"
 printf '%-20s %s\n' "OpenWrt:" "${DIST_VERSION:-неизвестно}"
 printf '%-20s %s\n' "Архитектура:" "$DIST_ARCH"
+printf '%-20s %s\n' "Target:" "${DIST_TARGET:-неизвестно}"
 printf '%-20s %s\n' "Пакетный менеджер:" "$PKG_MGR"
+printf '%-20s %s\n' "Списки пакетов:" "$PACKAGES_UPDATE_STATUS"
 printf '%-20s %s\n' "Пакеты:" "$PACKAGES_STATUS"
 printf '%-20s %s\n' "Русский LuCI:" "$BASE_RU_STATUS"
 printf '%-20s %s\n' "Тема Aurora:" "$AURORA_STATUS"
