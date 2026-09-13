@@ -55,7 +55,7 @@ fi
 printf '%s\n' "[OK] OpenWrt: ${DIST_VERSION:-неизвестно}"
 printf '%s\n' "[OK] Архитектура: $DIST_ARCH"
 printf '%s\n' "[OK] Target: ${DIST_TARGET:-неизвестно}"
-printf '%s\n' "[OK] Пакетный менеджер: $PKG_MGR"
+printf '%s\n' "[OK] Пакетный менеджер: $(basename "$PKG_MGR")"
 printf '%s\n' "[OK] Формат пакета: .$PKG_EXT"
 printf '\n'
 
@@ -164,7 +164,13 @@ printf '\n'
 
 printf '%s\n' "[4/8] Установка русского языка LuCI..."
 
-if "$PKG_MGR" install luci-i18n-base-ru; then
+if [ "$PKG_EXT" = "apk" ]; then
+    "$PKG_MGR" add luci-i18n-base-ru
+else
+    "$PKG_MGR" install luci-i18n-base-ru
+fi
+
+if [ "$?" -eq 0 ]; then
     BASE_RU_STATUS="установлен"
     printf '%s\n' "[OK] Русский язык LuCI установлен"
 else
@@ -335,7 +341,7 @@ printf '%s\n' "========================================"
 printf '%-20s %s\n' "OpenWrt:" "${DIST_VERSION:-неизвестно}"
 printf '%-20s %s\n' "Архитектура:" "$DIST_ARCH"
 printf '%-20s %s\n' "Target:" "${DIST_TARGET:-неизвестно}"
-printf '%-20s %s\n' "Пакетный менеджер:" "$PKG_MGR"
+printf '%-20s %s\n' "Пакетный менеджер:" "$(basename "$PKG_MGR")"
 printf '%-20s %s\n' "Списки пакетов:" "$PACKAGES_UPDATE_STATUS"
 printf '%-20s %s\n' "Пакеты:" "$PACKAGES_STATUS"
 printf '%-20s %s\n' "Русский LuCI:" "$BASE_RU_STATUS"
