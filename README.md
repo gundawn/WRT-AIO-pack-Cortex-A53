@@ -113,7 +113,6 @@ opkg → .ipk
 * сеть;
 * Aurora;
 * NetShift;
-⸻
 
 📌 Статус проекта
 
