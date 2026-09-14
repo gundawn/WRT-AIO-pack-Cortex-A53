@@ -2,7 +2,7 @@
 set -u
 
 printf '%s\n' "========================================"
-printf '%s\n' " OpenWrt Universal Installer"
+printf '%s\n' " Добро пожаловать! Начинаем установку."
 printf '%s\n' "========================================"
 printf '\n'
 
@@ -15,7 +15,7 @@ BASE_RU_STATUS="ошибка"
 CRON_STATUS="ошибка"
 
 if [ "$(id -u)" != "0" ]; then
-    printf '%s\n' "[ОШИБКА] Скрипт необходимо запускать от root."
+    printf '%s\n' "[ОШИБКА] Скрипт необходимо запускать от root. Ебало админов представили?"
     exit 1
 fi
 
@@ -218,11 +218,11 @@ if fetch_file "$GITHUB_API" "$RELEASE_JSON"; then
     if [ -n "$TAG" ]; then
         printf '%s\n' "[OK] Найден релиз: $TAG"
     else
-        printf '%s\n' "[ОШИБКА] Не удалось определить версию sing-box-extended"
+        printf '%s\n' "[ОШИБКА] Не удалось определить версию signbox-extended"
     fi
 
 else
-    printf '%s\n' "[ОШИБКА] Не удалось получить информацию о релизе sing-box-extended"
+    printf '%s\n' "[ОШИБКА] Не удалось получить информацию о релизе signbox-extended"
 fi
 
 printf '\n'
@@ -256,9 +256,9 @@ if [ -n "$TAG" ]; then
 
         0)
             printf '%s\n' \
-                "[ОШИБКА] Подходящий пакет sing-box-extended не найден."
+                "[ОШИБКА] Подходящий пакет signbox-extended не найден."
             printf '%s\n' \
-                "[INFO] Требуется: sing-box-extended_*_openwrt_${DIST_ARCH}.${PKG_EXT}"
+                "[INFO] Требуется: signbox-extended_*_openwrt_${DIST_ARCH}.${PKG_EXT}"
             ASSET=""
             ;;
 
@@ -299,20 +299,20 @@ if [ -n "$TAG" ]; then
                    sing-box version >/dev/null 2>&1; then
 
                     SINGBOX_STATUS="установлен"
-                    printf '%s\n' "[OK] sing-box-extended установлен"
+                    printf '%s\n' "[OK] signbox-extended установлен"
 
                 else
-                    printf '%s\n' "[ОШИБКА] Проверка sing-box не пройдена"
+                    printf '%s\n' "[ОШИБКА] Проверка signbox не пройдена"
                 fi
 
             else
                 printf '%s\n' \
-                    "[ОШИБКА] Не удалось установить sing-box-extended"
+                    "[ОШИБКА] Не удалось установить signbox-extended"
             fi
 
         else
             printf '%s\n' \
-                "[ОШИБКА] Не удалось скачать sing-box-extended"
+                "[ОШИБКА] Не удалось скачать signbox-extended"
         fi
     fi
 fi
@@ -389,7 +389,7 @@ printf '%-20s %s\n' "Списки пакетов:" "$PACKAGES_UPDATE_STATUS"
 printf '%-20s %s\n' "Пакеты:" "$PACKAGES_STATUS"
 printf '%-20s %s\n' "Русский LuCI:" "$BASE_RU_STATUS"
 printf '%-20s %s\n' "Тема Aurora:" "$AURORA_STATUS"
-printf '%-20s %s\n' "sing-box:" "$SINGBOX_STATUS"
+printf '%-20s %s\n' "signbox-X:" "$SINGBOX_STATUS"
 printf '%-20s %s\n' "NetShift:" "$NETSHIFT_STATUS"
 printf '%-20s %s\n' "Перезагрузка:" "$CRON_STATUS"
 printf '%s\n' "========================================"
