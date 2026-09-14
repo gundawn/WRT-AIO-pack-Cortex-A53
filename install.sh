@@ -2,7 +2,7 @@
 set -u
 
 printf '%s\n' "========================================"
-printf '%s\n' " OpenWrt Universal Installer"
+printf '%s\n' " AIO installer started successfully!"
 printf '%s\n' "========================================"
 printf '\n'
 
@@ -162,7 +162,7 @@ fi
 
 printf '\n'
 
-printf '%s\n' "[4/8] Установка русского языка LuCI..."
+printf '%s\n' "[4/8] Установка языкового пакета"
 
 if [ "$PKG_EXT" = "apk" ]; then
     "$PKG_MGR" add luci-i18n-base-ru
@@ -174,9 +174,9 @@ LUCI_RESULT=$?
 
 if [ "$LUCI_RESULT" -eq 0 ]; then
     BASE_RU_STATUS="установлен"
-    printf '%s\n' "[OK] Русский язык LuCI установлен"
+    printf '%s\n' "[OK] Русский пакет установлен"
 else
-    printf '%s\n' "[ОШИБКА] Не удалось установить luci-i18n-base-ru"
+    printf '%s\n' "[ОШИБКА] Не удалось установить языковой пакет"
 fi
 
 printf '\n'
@@ -200,7 +200,7 @@ fi
 
 printf '\n'
 
-printf '%s\n' "[6/8] Получение последнего релиза sing-box-extended..."
+printf '%s\n' "[6/8] Получение последнего релиза signbox-extended..."
 
 RELEASE_JSON="$TMP_DIR/release.json"
 TAG=""
@@ -217,11 +217,11 @@ if fetch_file "$GITHUB_API" "$RELEASE_JSON"; then
     if [ -n "$TAG" ]; then
         printf '%s\n' "[OK] Найден релиз: $TAG"
     else
-        printf '%s\n' "[ОШИБКА] Не удалось определить версию sing-box-extended"
+        printf '%s\n' "[ОШИБКА] Не удалось определить версию signbox-extended"
     fi
 
 else
-    printf '%s\n' "[ОШИБКА] Не удалось получить информацию о релизе sing-box-extended"
+    printf '%s\n' "[ОШИБКА] Не удалось получить информацию о релизе signbox-extended"
 fi
 
 printf '\n'
