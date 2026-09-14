@@ -1,4 +1,4 @@
-WRT AIO Universal Script
+                                                                   **WRT AIO Universal Script**
 
 Универсальный установщик для OpenWrt.
 
