@@ -2,7 +2,7 @@
 set -u
 
 printf '%s\n' "========================================"
-printf '%s\n' " AIO installer started successfully!"
+printf '%s\n' " OpenWrt Universal Installer"
 printf '%s\n' "========================================"
 printf '\n'
 
@@ -12,13 +12,14 @@ AURORA_STATUS="ошибка"
 SINGBOX_STATUS="ошибка"
 NETSHIFT_STATUS="ошибка"
 BASE_RU_STATUS="ошибка"
+CRON_STATUS="ошибка"
 
 if [ "$(id -u)" != "0" ]; then
     printf '%s\n' "[ОШИБКА] Скрипт необходимо запускать от root."
     exit 1
 fi
 
-printf '%s\n' "[1/8] Проверка OpenWrt..."
+printf '%s\n' "[1/9] Проверка OpenWrt..."
 
 if [ ! -f /etc/openwrt_release ]; then
     printf '%s\n' "[ОШИБКА] /etc/openwrt_release не найден."
@@ -140,7 +141,7 @@ AURORA_URL="https://openwrt.eamonxg.fun/install.sh"
 NETSHIFT_URL="https://raw.githubusercontent.com/yandexru45/netshift/refs/heads/main/install.sh"
 GITHUB_API="https://api.github.com/repos/shtorm-7/sing-box-extended/releases/latest"
 
-printf '%s\n' "[2/8] Обновление списков пакетов..."
+printf '%s\n' "[2/9] Обновление списков пакетов..."
 
 if "$PKG_MGR" update; then
     PACKAGES_UPDATE_STATUS="обновлены"
@@ -151,7 +152,7 @@ fi
 
 printf '\n'
 
-printf '%s\n' "[3/8] Обновление установленных пакетов..."
+printf '%s\n' "[3/9] Обновление установленных пакетов..."
 
 if "$PKG_MGR" upgrade; then
     PACKAGES_STATUS="обновлены"
@@ -162,7 +163,7 @@ fi
 
 printf '\n'
 
-printf '%s\n' "[4/8] Установка языкового пакета"
+printf '%s\n' "[4/9] Установка русского языка LuCI..."
 
 if [ "$PKG_EXT" = "apk" ]; then
     "$PKG_MGR" add luci-i18n-base-ru
@@ -174,14 +175,14 @@ LUCI_RESULT=$?
 
 if [ "$LUCI_RESULT" -eq 0 ]; then
     BASE_RU_STATUS="установлен"
-    printf '%s\n' "[OK] Русский пакет установлен"
+    printf '%s\n' "[OK] Русский язык LuCI установлен"
 else
-    printf '%s\n' "[ОШИБКА] Не удалось установить языковой пакет"
+    printf '%s\n' "[ОШИБКА] Не удалось установить luci-i18n-base-ru"
 fi
 
 printf '\n'
 
-printf '%s\n' "[5/8] Установка темы Aurora..."
+printf '%s\n' "[5/9] Установка темы Aurora..."
 
 AURORA_SCRIPT="$TMP_DIR/aurora-install.sh"
 
@@ -200,7 +201,7 @@ fi
 
 printf '\n'
 
-printf '%s\n' "[6/8] Получение последнего релиза signbox-extended..."
+printf '%s\n' "[6/9] Получение последнего релиза sing-box-extended..."
 
 RELEASE_JSON="$TMP_DIR/release.json"
 TAG=""
@@ -217,16 +218,16 @@ if fetch_file "$GITHUB_API" "$RELEASE_JSON"; then
     if [ -n "$TAG" ]; then
         printf '%s\n' "[OK] Найден релиз: $TAG"
     else
-        printf '%s\n' "[ОШИБКА] Не удалось определить версию signbox-extended"
+        printf '%s\n' "[ОШИБКА] Не удалось определить версию sing-box-extended"
     fi
 
 else
-    printf '%s\n' "[ОШИБКА] Не удалось получить информацию о релизе signbox-extended"
+    printf '%s\n' "[ОШИБКА] Не удалось получить информацию о релизе sing-box-extended"
 fi
 
 printf '\n'
 
-printf '%s\n' "[7/8] Загрузка и установка sing-box-extended..."
+printf '%s\n' "[7/9] Загрузка и установка sing-box-extended..."
 
 if [ -n "$TAG" ]; then
 
@@ -318,7 +319,7 @@ fi
 
 printf '\n'
 
-printf '%s\n' "[8/8] Установка NetShift..."
+printf '%s\n' "[8/9] Установка NetShift..."
 
 NETSHIFT_SCRIPT="$TMP_DIR/netshift-install.sh"
 
@@ -337,6 +338,46 @@ fi
 
 printf '\n'
 
+printf '%s\n' "[9/9] Настройка ежедневной перезагрузки в 05:00..."
+
+CRON_FILE="/etc/crontabs/root"
+CRON_LINE="0 5 * * * /sbin/reboot"
+
+if [ ! -f "$CRON_FILE" ]; then
+    if ! touch "$CRON_FILE"; then
+        printf '%s\n' "[ОШИБКА] Не удалось создать $CRON_FILE"
+    else
+        printf '%s\n' "[OK] Файл cron создан"
+    fi
+fi
+
+if [ -f "$CRON_FILE" ]; then
+    if grep -qF "$CRON_LINE" "$CRON_FILE" 2>/dev/null; then
+        CRON_STATUS="уже настроена"
+        printf '%s\n' "[OK] Задача уже существует в cron"
+    else
+        if printf '%s\n' "$CRON_LINE" >> "$CRON_FILE"; then
+            CRON_STATUS="настроена (05:00)"
+            printf '%s\n' "[OK] Ежедневная перезагрузка в 05:00 добавлена"
+        else
+            CRON_STATUS="ошибка"
+            printf '%s\n' "[ОШИБКА] Не удалось записать задачу в cron"
+        fi
+    fi
+
+    if [ "$CRON_STATUS" != "ошибка" ]; then
+        if /etc/init.d/cron enable >/dev/null 2>&1 &&
+           /etc/init.d/cron restart >/dev/null 2>&1; then
+            printf '%s\n' "[OK] cron активирован и перечитал расписание"
+        else
+            CRON_STATUS="ошибка"
+            printf '%s\n' "[ОШИБКА] Не удалось активировать cron"
+        fi
+    fi
+fi
+
+printf '\n'
+
 printf '%s\n' "========================================"
 printf '%s\n' " РЕЗУЛЬТАТ УСТАНОВКИ"
 printf '%s\n' "========================================"
@@ -350,4 +391,5 @@ printf '%-20s %s\n' "Русский LuCI:" "$BASE_RU_STATUS"
 printf '%-20s %s\n' "Тема Aurora:" "$AURORA_STATUS"
 printf '%-20s %s\n' "sing-box:" "$SINGBOX_STATUS"
 printf '%-20s %s\n' "NetShift:" "$NETSHIFT_STATUS"
+printf '%-20s %s\n' "Перезагрузка:" "$CRON_STATUS"
 printf '%s\n' "========================================"
