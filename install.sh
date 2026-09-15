@@ -6,7 +6,7 @@ AURORA_INSTALL_URL="https://openwrt.eamonxg.fun/install.sh"
 NETSHIFT_INSTALL_URL="https://raw.githubusercontent.com/yandexru45/netshift/refs/heads/main/install.sh"
 SINGBOX_API_URL="https://api.github.com/repos/shtorm-7/sing-box-extended/releases/latest"
 
-MIN_FLASH_MB=50
+MIN_FLASH_MB=80
 TMP_DIR="/tmp/wrt-aio"
 
 PACKAGES_UPDATE_STATUS="SKIPPED"
